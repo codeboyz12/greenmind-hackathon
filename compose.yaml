@@ -1,0 +1,183 @@
+x-vllm-common: &vllm-common
+  image: vllm/vllm-openai:latest
+  platform: linux/amd64
+  network_mode: host
+  ipc: host
+  shm_size: 16gb
+  ulimits:
+    memlock: -1
+    stack: 67108864
+  runtime: nvidia
+  volumes:
+    - ./models/MANGO1.5-Qwen3.5-9B:/models/mango:ro
+  environment:
+    HF_HUB_OFFLINE: "1"
+    TRANSFORMERS_OFFLINE: "1"
+    VLLM_LOGGING_LEVEL: INFO
+  restart: "no"
+
+services:
+  mango-e0:
+    <<: *vllm-common
+    profiles: ["e0"]
+    container_name: mango-e0
+    command:
+      - /models/mango
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8001"
+      - --served-model-name
+      - CMKL/MANGO1.5-Qwen3.5-9B
+      - --tensor-parallel-size
+      - "1"
+      - --dtype
+      - bfloat16
+      - --max-model-len
+      - "8192"
+      - --max-num-seqs
+      - "128"
+      - --max-num-batched-tokens
+      - "8192"
+      - --gpu-memory-utilization
+      - "0.70"
+      - --reasoning-parser
+      - qwen3
+      - --enable-auto-tool-choice
+      - --tool-call-parser
+      - qwen3_coder
+
+  mango-e1:
+    <<: *vllm-common
+    profiles: ["e1"]
+    container_name: mango-e1
+    command:
+      - /models/mango
+      - --trust-remote-code
+      - --language-model-only
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8001"
+      - --served-model-name
+      - CMKL/MANGO1.5-Qwen3.5-9B
+      - --tensor-parallel-size
+      - "1"
+      - --dtype
+      - bfloat16
+      - --max-model-len
+      - "40960"
+      - --max-num-seqs
+      - "128"
+      - --max-num-batched-tokens
+      - "8192"
+      - --gpu-memory-utilization
+      - "0.90"
+      - --enable-prefix-caching
+      - --reasoning-parser
+      - qwen3
+      - --enable-auto-tool-choice
+      - --tool-call-parser
+      - qwen3_coder
+      - --speculative-config
+      - '{"method":"mtp","num_speculative_tokens":1}'
+      - --enable-chunked-prefill
+      - --kv-cache-dtype
+      - fp8
+      - --async-scheduling
+
+  mango-e2:
+    <<: *vllm-common
+    profiles: ["e2"]
+    container_name: mango-e2
+    volumes:
+      - ./models/MANGO1.5-Qwen3.5-9B-AWQ-W4A16-mtp:/models/mango:ro
+      - ./benchmarks/e2/stitched:/models/e2:ro
+    command:
+      - /models/mango
+      - --trust-remote-code
+      - --language-model-only
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8001"
+      - --served-model-name
+      - CMKL/MANGO1.5-Qwen3.5-9B-AWQ-W4A16-mtp
+      - --tensor-parallel-size
+      - "1"
+      - --dtype
+      - bfloat16
+      - --max-model-len
+      - "40960"
+      - --max-num-seqs
+      - "128"
+      - --max-num-active-seqs
+      - "128"
+      - --max-num-batched-tokens
+      - "2048"
+      - --gpu-memory-utilization
+      - "0.90"
+      - --enable-prefix-caching
+      - --reasoning-parser
+      - qwen3
+      - --enable-auto-tool-choice
+      - --tool-call-parser
+      - qwen3_coder
+      - --enable-chunked-prefill
+      - --kv-cache-dtype
+      - fp8
+      - --async-scheduling
+
+  mango-e2-tools:
+    build:
+      context: .
+      dockerfile: benchmarks/e2/Dockerfile
+    image: mango-speculators-e2:latest
+    profiles: ["e2-tools"]
+    container_name: mango-e2-tools
+    entrypoint: ["/bin/bash", "-lc"]
+    command: ["sleep infinity"]
+    network_mode: host
+    ipc: host
+    shm_size: 16gb
+    gpus: all
+    volumes:
+      - ./models/MANGO1.5-Qwen3.5-9B:/models/mango:ro
+      - ./benchmarks/e2:/e2
+    restart: "no"
+
+  mango-e3:
+    <<: *vllm-common
+    image: vllm/vllm-openai:v0.31.0
+    profiles: ["e3"]
+    container_name: mango-e3
+    volumes:
+      - ./models/MANGO1.5-Qwen3.5-9B:/models/mango:ro
+      - ./benchmarks/e2/dflash2_5k/checkpoints/4:/models/dflash2:ro
+    command:
+      - /models/mango
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8001"
+      - --served-model-name
+      - CMKL/MANGO1.5-Qwen3.5-9B
+      - --tensor-parallel-size
+      - "1"
+      - --dtype
+      - bfloat16
+      - --max-model-len
+      - "8192"
+      - --max-num-seqs
+      - "8"
+      - --max-num-batched-tokens
+      - "8192"
+      - --gpu-memory-utilization
+      - "0.70"
+      - --reasoning-parser
+      - qwen3
+      - --enable-auto-tool-choice
+      - --tool-call-parser
+      - qwen3_coder
+      - --speculative-config
+      - '{"method":"dflash","model":"/models/dflash2","num_speculative_tokens":7}'

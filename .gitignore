@@ -1,0 +1,47 @@
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Build outputs
+dist/
+build/
+out/
+
+# IDE and editor
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Secrets and credentials
+*.pem
+*.key
+
+# Large model and dataset files
+*.pt
+*.pth
+*.ckpt
+*.safetensors
