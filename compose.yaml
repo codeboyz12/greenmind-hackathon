@@ -111,8 +111,6 @@ services:
       - "40960"
       - --max-num-seqs
       - "128"
-      - --max-num-active-seqs
-      - "128"
       - --max-num-batched-tokens
       - "2048"
       - --gpu-memory-utilization
